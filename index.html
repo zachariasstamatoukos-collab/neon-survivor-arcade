@@ -3,22 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Survivor - Dopamine Intro</title>
+    <title>Neon Survivor Arcade</title>
     <style>
         body { margin: 0; background: #050505; color: white; font-family: sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        canvas { background: #111; border: 2px solid #00f2ff; box-shadow: 0 0 20px #00f2ff; }
-        #start-screen { position: absolute; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #00f2ff; z-index: 20; }
+        canvas { background: #111; border: 2px solid #00f2ff; box-shadow: 0 0 20px #00f2ff; cursor: none; }
+        #start-screen, #game-over { position: absolute; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #00f2ff; z-index: 20; }
+        #game-over { display: none; border-color: #ff0055; }
         button { background: #00f2ff; color: #000; border: none; padding: 15px 30px; font-size: 20px; border-radius: 10px; cursor: pointer; font-weight: bold; }
+        #score { position: absolute; top: 20px; font-size: 30px; color: #00f2ff; width: 100%; text-align: center; pointer-events: none; }
     </style>
 </head>
 <body>
 
 <div id="start-screen">
     <h1 style="color: #00f2ff;">NEON SURVIVOR</h1>
-    <p>Music will play for 30 seconds only.</p>
-    <button onclick="startGame()">START GAME</button>
+    <p>Music plays for 30s. Avoid the red blocks!</p>
+    <button onclick="startGame()">START GAME & MUSIC</button>
 </div>
 
+<div id="game-over">
+    <h1 style="color: #ff0055;">GAME OVER</h1>
+    <p id="final-score"></p>
+    <button onclick="resetGame()">RETRY</button>
+</div>
+
+<div id="score">SCORE: 0</div>
 <canvas id="gameCanvas"></canvas>
 
 <audio id="bgMusic" src="music.mp3"></audio>
@@ -31,48 +40,74 @@
 
     let player = { x: 180, y: 530, w: 40, h: 40 };
     let enemies = [], score = 0, gameActive = false;
+    let spawnRate = 1000, lastSpawn = 0, enemySpeed = 4;
 
     function startGame() {
         document.getElementById("start-screen").style.display = "none";
         gameActive = true;
-        
-        // Ξεκινάει η μουσική
         music.play();
-
-        // Μετά από 30 δευτερόλεπτα (30000ms), σταμάτα τη μουσική
+        
+        // Fade out music after 30 seconds
         setTimeout(() => {
-            stopMusicSmoothly();
+            let fade = setInterval(() => {
+                if(music.volume > 0.1) music.volume -= 0.1;
+                else { music.pause(); clearInterval(fade); }
+            }, 200);
         }, 30000);
 
-        update();
-    }
-
-    function stopMusicSmoothly() {
-        // Σβήσιμο ήχου σιγά σιγά (Fade out)
-        let fadeOut = setInterval(() => {
-            if (music.volume > 0.1) {
-                music.volume -= 0.1;
-            } else {
-                music.pause();
-                clearInterval(fadeOut);
-            }
-        }, 200);
-    }
-
-    function update(time = 0) {
-        if (!gameActive) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#00f2ff";
-        ctx.fillRect(player.x, player.y, player.w, player.h);
-        // ... (υπόλοιπος κώδικας κίνησης)
         requestAnimationFrame(update);
     }
 
-    // Κίνηση ποντικιού
     window.addEventListener("mousemove", (e) => {
         let rect = canvas.getBoundingClientRect();
         player.x = (e.clientX - rect.left) - player.w / 2;
     });
+
+    function update(time = 0) {
+        if (!gameActive) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Σχέδιο Παίκτη
+        ctx.fillStyle = "#00f2ff";
+        ctx.shadowBlur = 15; ctx.shadowColor = "#00f2ff";
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+
+        // Δημιουργία Εχθρών
+        if (time - lastSpawn > spawnRate) {
+            enemies.push({ x: Math.random() * 360, y: -40, w: 40, h: 40 });
+            lastSpawn = time;
+            if (spawnRate > 400) spawnRate -= 10;
+        }
+
+        // Κίνηση Εχθρών
+        enemies.forEach((en, i) => {
+            en.y += enemySpeed;
+            ctx.fillStyle = "#ff0055";
+            ctx.shadowColor = "#ff0055";
+            ctx.fillRect(en.x, en.y, en.w, en.h);
+
+            // Collision Detection (Σύγκρουση)
+            if (player.x < en.x + en.w && player.x + player.w > en.x && player.y < en.y + en.h && player.y + player.h > en.y) {
+                gameActive = false;
+                document.getElementById("game-over").style.display = "block";
+                document.getElementById("final-score").innerText = "SCORE: " + score;
+            }
+
+            // Score & Cleanup
+            if (en.y > 600) {
+                enemies.splice(i, 1);
+                score++;
+                document.getElementById("score").innerText = "SCORE: " + score;
+            }
+        });
+
+        requestAnimationFrame(update);
+    }
+
+    function resetGame() {
+        location.reload();
+    }
 </script>
 </body>
 </html>
